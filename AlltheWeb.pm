@@ -1,7 +1,7 @@
 # AlltheWeb.pm
 # by Jim Smyser
 # Copyright (c) 2000 by Jim Smyser 
-# $Id: AlltheWeb.pm,v 1.4 2000/04/03 22:16:48 jims Exp $
+# $Id: AlltheWeb.pm,v 1.5 2000/07/17 07:10:59 jims Exp $
 
 package WWW::Search::AlltheWeb;
 
@@ -11,29 +11,29 @@ WWW::Search::AlltheWeb - class for searching AlltheWeb
 
 =head1 SYNOPSIS
 
-  use WWW::Search;
- my $search = new WWW::Search('AlltheWeb');
- $search->native_query(WWW::Search::escape_query($query));
- $search->maximum_to_retrieve('100'); 
-  while (my $result = $search->next_result())
-    { 
-    print $result->url, "\n"; 
-    }
+use WWW::Search;
+$query = "sprinkler system installation how to"; 
+$search = new WWW::Search('AlltheWeb');
+$search->native_query(WWW::Search::escape_query($query));
+$search->maximum_to_retrieve(100);
+while (my $result = $search->next_result()) {
+
+$url = $result->url;
+$title = $result->title;
+$desc = $result->description;
+
+print "<a href=$url>$title</a> $source<br>$date<br>$desc<p>\n"; 
+} 
 
 =head1 DESCRIPTION
 
 AlltheWeb is a class specialization of WWW::Search.
 It handles making and interpreting AlltheWeb searches.
 This is one of the fastest and largest search engines around. 
-Unfortunately, it returns a lot of duplicates. One be wise to
-print results into a hash to sort and remove duplicate URL's
-or, my personal preference because lots of duplicate pages can 
-have different URL's, is to sort on TITLE.
 F<http://www.alltheweb.com>.
 
 This class exports no public interface; all interaction should
-be done through L<WWW::Search> objects. See SYNOPSIS and OPTIONS
-for usage insight.
+be done through L<WWW::Search> objects. See SYNOPSIS.
 
 =head1 AUTHOR
 
@@ -58,7 +58,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw();
 @ISA = qw(WWW::Search Exporter);
-$VERSION = '1.4';
+$VERSION = '1.5';
 
 $MAINTAINER = 'Jim Smyser <jsmyser@bigfoot.com>';
 $TEST_CASES = <<"ENDTESTCASES";
@@ -80,13 +80,13 @@ sub native_setup_search {
         $self->user_agent('user');
         $self->{_next_to_retrieve} = 1;
         $self->{'_num_hits'} = 0;
-        $self->{'_hits_per_page'} = 50;
+        $self->{'_hits_per_page'} = 100;
         
         if (!defined($self->{_options})) {
-        $self->{'search_base_url'} = 'http://www.alltheweb.com';
+        $self->{'search_base_url'} = 'http://www.ussc.alltheweb.com';
         $self->{_options} = {
-        'search_url' => 'http://www.alltheweb.com/cgi-bin/search',
-              'query' => $native_query ,
+        'search_url' => 'http://www.ussc.alltheweb.com/cgi-bin/search',
+              'query' => $native_query,
               'type' => 'all',
               'hits' => $self->{'_hits_per_page'},
               };
@@ -140,23 +140,9 @@ sub native_retrieve_some {
         $self->approximate_result_count($1);
         $state = $HITS;
         } 
-    elsif ($state eq $HITS && m@.*?</B>\s<A HREF="(.*)">(.*)</a>@i) 
+    elsif ($state eq $HITS && m@<dt>.*?<a href="([^"]+)">(.+)$@i) 
         {
-        print "**Found Hit URL**\n" if 2 <= $self->{_debug};
-        my ($url,$title) = ($1,$2);
-        if (defined($hit))
-              {
-        push(@{$self->{cache}}, $hit);
-              }
-        $hit = new WWW::SearchResult;
-        $hits_found++;
-        $hit->add_url($url);
-        $hit->title($title);
-        $state = $DESC;
-        } 
-    elsif ($state eq $HITS && m@.*?</B>\s<A HREF="(.*)@i) 
-        {
-        print "**Found Hit URL**\n" if 2 <= $self->{_debug};
+        print "**Found Hit URL/Title**\n" if 2 <= $self->{_debug};
         if (defined($hit))
               {
         push(@{$self->{cache}}, $hit);
@@ -164,21 +150,16 @@ sub native_retrieve_some {
         $hit = new WWW::SearchResult;
         $hits_found++;
         $hit->add_url($1);
-        $state = $TITLE;
-        } 
-   elsif ($state eq $TITLE && m|^">(.*)</A>|i) 
-        {
-        my ($title) = ($1);
-        $hit->title($title);
+        $hit->title($2);
         $state = $DESC;
         } 
-    elsif ($state eq $DESC && m|<DD><.*?>(.*)|i) 
+    elsif ($state eq $DESC && m|<dd><span.*?>(.*)$|i) 
         {
         print STDERR "**Found Description**\n" if 2 <= $self->{_debug};
         $hit->description($1);
         $state = $HITS;
         } 
-    elsif ($state eq $HITS && m|.*?<A HREF="([^"]+)">&gt;&gt;</A>|i) 
+    elsif ($state eq $HITS && m|.*?<A HREF="([^"]+)"><span class="resultbar">&gt;&gt;</span></a>|i) 
         {
         print STDERR "**Going to Next Page**\n" if 2 <= $self->{_debug};
         my $URL = $1;
