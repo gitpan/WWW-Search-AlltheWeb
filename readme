@@ -1,0 +1,7 @@
+AlltheWeb
+Requires WWW::Search
+
+Backend for searching www.alltheweb.com
+
+For a list of current working backends see http://members.xoom.com/backends
+
